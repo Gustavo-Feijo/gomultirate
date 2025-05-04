@@ -7,7 +7,8 @@ import (
 	"time"
 )
 
-// Single rate limit entry.
+// Limit represents a single rate limit window.
+// Use NewLimit to create a instance.
 type Limit struct {
 	count       int
 	interval    time.Duration
@@ -16,7 +17,8 @@ type Limit struct {
 	timeBetween time.Duration
 }
 
-// Create a new limit entry.
+// NewLimit create a new rate limit window.
+// 'interval' is the total window time and 'limit' the max amount of requests in that interval.
 func NewLimit(interval time.Duration, limit int) *Limit {
 	if limit <= 0 {
 		panic("limit must be greater than zero")
@@ -31,7 +33,7 @@ func NewLimit(interval time.Duration, limit int) *Limit {
 	}
 }
 
-// Try to reset the limit and return if it's available.
+// checkLimit try to reset the limit and return if it's available.
 func (l *Limit) checkLimit() bool {
 	now := time.Now()
 	if time.Since(l.lastReset) >= l.interval {
@@ -41,7 +43,7 @@ func (l *Limit) checkLimit() bool {
 	return l.count < l.limit
 }
 
-// Get how much time until the next reset.
+// getRemainingTime gets how much time until the next reset.
 // The mutex must be held by the caller.
 func (l *Limit) getRemainingTime() time.Duration {
 	// It's already free to use.
@@ -60,14 +62,16 @@ func (l *Limit) getRemainingTime() time.Duration {
 	return remaining
 }
 
-// Main RateLimiter.
-// Simply provide a map of limit windows and a mutex.
+// rateLimiter is the main Rate Limiter implementation.
+// Created through NewRateLimiter.
+// Provide a map of limit windows and a mutex for concurrency.
 type rateLimiter struct {
 	limits map[string]*Limit
 	mu     sync.Mutex
 }
 
-// Create the rate limiter with the provided map of limits.
+// NewRateLimiter creates the rate limiter with the provided map of limits.
+// 'limits' is the map of each individual limit.
 func NewRateLimiter(limits map[string]*Limit) (*rateLimiter, error) {
 	if len(limits) == 0 {
 		return nil, errors.New("can't provide a rate limiter with no limits")
@@ -78,7 +82,7 @@ func NewRateLimiter(limits map[string]*Limit) (*rateLimiter, error) {
 	}, nil
 }
 
-// Verify if the limits are available, if they are, consume them.
+// allowAndIncrement verify if the limits are available, if they are, consume them.
 // The mutex must be held by the caller.
 func (r *rateLimiter) allowAndIncrement() bool {
 	// Check all windows
@@ -93,7 +97,7 @@ func (r *rateLimiter) allowAndIncrement() bool {
 	return true
 }
 
-// Calculate the minimum wait time necessary for all windows to be refilled.
+// getMinWaitTime calculate the minimum wait time necessary for all windows to be reseted.
 // The mutex must be held by the caller.
 func (r *rateLimiter) getMinWaitTime() time.Duration {
 	var minWaitTime time.Duration
@@ -112,7 +116,7 @@ func (r *rateLimiter) getMinWaitTime() time.Duration {
 	return minWaitTime
 }
 
-// Consume one of each window limit.
+// incrementCounts consume one of each window limit.
 // The mutex must be held by the caller.
 func (r *rateLimiter) incrementCounts() {
 	for _, win := range r.limits {
@@ -120,7 +124,7 @@ func (r *rateLimiter) incrementCounts() {
 	}
 }
 
-// Try to get the limit without blocking.
+// Try gets the limit without blocking.
 // Returns true/false depending on if the limit is available.
 // If not, returns the time until the next reset.
 func (r *rateLimiter) Try() (bool, time.Duration) {
@@ -137,7 +141,7 @@ func (r *rateLimiter) Try() (bool, time.Duration) {
 	return false, waitTime
 }
 
-// Wait for all the limit windows to be available.
+// Wait waits for all the limit windows to be available.
 // Receive a context for handling timeouts.
 func (r *rateLimiter) Wait(ctx context.Context) error {
 	// Get the lock.
@@ -181,7 +185,7 @@ func (r *rateLimiter) Wait(ctx context.Context) error {
 	}
 }
 
-// Wait for all the limit windows to be available.
+// WaitEvenly waits for all the limit windows to be available.
 // Get the limits at a fixed ratio based on the limit key.
 // Usefull if don't need to have a burst of usage.
 func (r *rateLimiter) WaitEvenly(ctx context.Context, key string) error {
