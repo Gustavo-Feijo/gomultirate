@@ -3,6 +3,7 @@
 GoMultiRate is a rate limiter designed for multiple use cases, especially for multiple rate limit windows.
 
 The initial motivation for development was the Riot API, which usually holds two different limits in different spans of time.
+[![Go Reference](https://pkg.go.dev/badge/github.com/Gustavo-Feijo/gomultirate.svg)](https://pkg.go.dev/github.com/Gustavo-Feijo/gomultirate)
 
 ## Table of contents
 - [GoMultiRate](#gomultirate)
