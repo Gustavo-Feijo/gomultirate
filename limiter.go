@@ -67,26 +67,26 @@ func (l *Limit) getRemainingTime() time.Duration {
 // rateLimiter is the main Rate Limiter implementation.
 // Created through NewRateLimiter.
 // Provide a map of limit windows and a mutex for concurrency.
-type rateLimiter struct {
+type RateLimiter struct {
 	limits map[string]*Limit
 	mu     sync.Mutex
 }
 
 // NewRateLimiter creates the rate limiter with the provided map of limits.
 // 'limits' is the map of each individual limit.
-func NewRateLimiter(limits map[string]*Limit) (*rateLimiter, error) {
+func NewRateLimiter(limits map[string]*Limit) (*RateLimiter, error) {
 	if len(limits) == 0 {
 		return nil, errors.New("can't provide a rate limiter with no limits")
 	}
 
-	return &rateLimiter{
+	return &RateLimiter{
 		limits: limits,
 	}, nil
 }
 
 // allowAndIncrement verify if the limits are available, if they are, consume them.
 // The mutex must be held by the caller.
-func (r *rateLimiter) allowAndIncrement() bool {
+func (r *RateLimiter) allowAndIncrement() bool {
 	// Check all windows
 	for _, win := range r.limits {
 		if !win.checkLimit() {
@@ -101,7 +101,7 @@ func (r *rateLimiter) allowAndIncrement() bool {
 
 // getMinWaitTime calculate the minimum wait time necessary for all windows to be reseted.
 // The mutex must be held by the caller.
-func (r *rateLimiter) getMinWaitTime() time.Duration {
+func (r *RateLimiter) getMinWaitTime() time.Duration {
 	var minWaitTime time.Duration
 
 	// Go through each limit and get the remaining time.
@@ -120,7 +120,7 @@ func (r *rateLimiter) getMinWaitTime() time.Duration {
 
 // incrementCounts consume one of each window limit.
 // The mutex must be held by the caller.
-func (r *rateLimiter) incrementCounts() {
+func (r *RateLimiter) incrementCounts() {
 	for _, win := range r.limits {
 		win.count++
 	}
@@ -129,7 +129,7 @@ func (r *rateLimiter) incrementCounts() {
 // Try gets the limit without blocking.
 // Returns true/false depending on if the limit is available.
 // If not, returns the time until the next reset.
-func (r *rateLimiter) Try() (bool, time.Duration) {
+func (r *RateLimiter) Try() (bool, time.Duration) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -145,7 +145,7 @@ func (r *rateLimiter) Try() (bool, time.Duration) {
 
 // Wait waits for all the limit windows to be available.
 // Receive a context for handling timeouts.
-func (r *rateLimiter) Wait(ctx context.Context) error {
+func (r *RateLimiter) Wait(ctx context.Context) error {
 	// Get the lock.
 	r.mu.Lock()
 
@@ -190,7 +190,7 @@ func (r *rateLimiter) Wait(ctx context.Context) error {
 // WaitEvenly waits for all the limit windows to be available.
 // Get the limits at a fixed ratio based on the limit key.
 // Usefull if don't need to have a burst of usage.
-func (r *rateLimiter) WaitEvenly(ctx context.Context, key string) error {
+func (r *RateLimiter) WaitEvenly(ctx context.Context, key string) error {
 	for {
 		r.mu.Lock()
 
