@@ -99,10 +99,11 @@ func (r *RateLimiter) allowAndIncrement() bool {
 	return true
 }
 
-// getMinWaitTime calculate the minimum wait time necessary for all windows to be reseted.
+// getWaitTimeReset calculate the maximum wait time of all windows.
+// The returned value is the minimum wait time necessary for all windows to be reseted.
 // The mutex must be held by the caller.
-func (r *RateLimiter) getMinWaitTime() time.Duration {
-	var minWaitTime time.Duration
+func (r *RateLimiter) getWaitTimeReset() time.Duration {
+	var maxWaitTime time.Duration
 
 	// Go through each limit and get the remaining time.
 	for _, lim := range r.limits {
@@ -110,12 +111,12 @@ func (r *RateLimiter) getMinWaitTime() time.Duration {
 
 		// We get the highest wait time between the limits.
 		// This one is the minimum wait time to proceed with the execution.
-		if waitTime > 0 && (minWaitTime == 0 || waitTime < minWaitTime) {
-			minWaitTime = waitTime
+		if waitTime > 0 && (maxWaitTime == 0 || waitTime > maxWaitTime) {
+			maxWaitTime = waitTime
 		}
 	}
 
-	return minWaitTime
+	return maxWaitTime
 }
 
 // incrementCounts consume one of each window limit.
@@ -139,7 +140,7 @@ func (r *RateLimiter) Try() (bool, time.Duration) {
 	}
 
 	// Get how much time until the next reset and return it.
-	waitTime := r.getMinWaitTime()
+	waitTime := r.getWaitTimeReset()
 	return false, waitTime
 }
 
@@ -156,7 +157,7 @@ func (r *RateLimiter) Wait(ctx context.Context) error {
 	}
 
 	// Calculate how much time until the next reset.
-	waitTime := r.getMinWaitTime()
+	waitTime := r.getWaitTimeReset()
 
 	// Unlock since it will wait.
 	r.mu.Unlock()
@@ -177,7 +178,7 @@ func (r *RateLimiter) Wait(ctx context.Context) error {
 			}
 
 			// If couldn't, reset the timer and run again.
-			waitTime = r.getMinWaitTime()
+			waitTime = r.getWaitTimeReset()
 			r.mu.Unlock()
 			timer.Reset(waitTime)
 
