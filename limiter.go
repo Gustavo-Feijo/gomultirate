@@ -1,3 +1,5 @@
+// Package gomultirate provides a generic rate limiter with support for multiple windows.
+// Support burst and evenly distributed rate control
 package gomultirate
 
 import (
